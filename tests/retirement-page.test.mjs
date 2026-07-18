@@ -47,6 +47,21 @@ test("核心结论可见且 FAQ 与结构化数据逐项一致", () => {
   }
 });
 
+test("抓取发现文件统一使用正式地址", async () => {
+  const robots = await readFile(new URL("../robots.txt", import.meta.url), "utf8");
+  const sitemap = await readFile(new URL("../sitemap.xml", import.meta.url), "utf8");
+  const llms = await readFile(new URL("../llms.txt", import.meta.url), "utf8");
+
+  assert.match(robots, /^User-agent: \*\nAllow: \/\n/m);
+  assert.match(robots, /Sitemap: https:\/\/www\.shengpan\.net\/china-pension-calculator\/sitemap\.xml/);
+  assert.match(sitemap, /<loc>https:\/\/www\.shengpan\.net\/china-pension-calculator\/<\/loc>/);
+  assert.equal((sitemap.match(/<url>/g) ?? []).length, 1);
+  assert.match(llms, /https:\/\/www\.shengpan\.net\/china-pension-calculator\//);
+  for (const phrase of ["中国养老金计算器", "临界回报率", "不构成投资建议"]) {
+    assert.match(llms, new RegExp(phrase));
+  }
+});
+
 test("页脚展示可访问的 ICP 备案链接", () => {
   assert.match(
     html,

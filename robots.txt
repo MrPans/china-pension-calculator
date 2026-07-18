@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://www.shengpan.net/china-pension-calculator/sitemap.xml
