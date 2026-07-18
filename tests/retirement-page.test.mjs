@@ -11,6 +11,7 @@ assert.ok(modelCore, "应找到模型核心脚本");
 const modelContext = vm.createContext({});
 vm.runInContext(modelCore, modelContext);
 const model = modelContext.RetirementModel;
+const normalizeText = (value) => value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
 test("页面声明统一的 SEO 元数据和结构化身份", () => {
   assert.match(html, /<title>中国养老金计算器：社保养老 vs 个人投资养老<\/title>/);
@@ -28,6 +29,22 @@ test("页面声明统一的 SEO 元数据和结构化身份", () => {
   assert.equal(graph[1].url, canonicalUrl);
   assert.equal(graph[1].offers.price, "0");
   assert.equal(graph[1].inLanguage, "zh-CN");
+});
+
+test("核心结论可见且 FAQ 与结构化数据逐项一致", () => {
+  const guide = html.match(/<section[^>]+id="pension-guide"[\s\S]*?<\/section>/)?.[0];
+  assert.ok(guide, "应包含核心结论与常见问题区块");
+  for (const phrase of ["寿命越长", "可继承", "临界回报率", "税务", "不构成投资建议"]) {
+    assert.match(normalizeText(guide), new RegExp(phrase));
+  }
+
+  const jsonLd = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
+  const faq = jsonLd["@graph"].find((node) => node["@type"] === "FAQPage");
+  assert.equal(faq.mainEntity.length, 6);
+  for (const item of faq.mainEntity) {
+    assert.ok(normalizeText(guide).includes(item.name), `应显示问题：${item.name}`);
+    assert.ok(normalizeText(guide).includes(item.acceptedAnswer.text), `应显示答案：${item.name}`);
+  }
 });
 
 test("页脚展示可访问的 ICP 备案链接", () => {
