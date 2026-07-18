@@ -5,11 +5,30 @@ import vm from "node:vm";
 
 const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
+const canonicalUrl = "https://www.shengpan.net/china-pension-calculator/";
 const modelCore = html.match(/<script id="model-core">([\s\S]*?)<\/script>/)?.[1];
 assert.ok(modelCore, "应找到模型核心脚本");
 const modelContext = vm.createContext({});
 vm.runInContext(modelCore, modelContext);
 const model = modelContext.RetirementModel;
+
+test("页面声明统一的 SEO 元数据和结构化身份", () => {
+  assert.match(html, /<title>中国养老金计算器：社保养老 vs 个人投资养老<\/title>/);
+  assert.match(html, new RegExp(`<link rel="canonical" href="${canonicalUrl}">`));
+  assert.match(html, /<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">/);
+  assert.match(html, new RegExp(`<meta property="og:url" content="${canonicalUrl}">`));
+  assert.match(html, /<meta property="og:locale" content="zh_CN">/);
+  assert.match(html, /<meta name="twitter:card" content="summary">/);
+
+  const jsonLdSource = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(jsonLdSource, "应包含 JSON-LD");
+  const graph = JSON.parse(jsonLdSource)["@graph"];
+  assert.deepEqual(graph.map((node) => node["@type"]), ["WebPage", "WebApplication", "FAQPage"]);
+  assert.equal(graph[0].url, canonicalUrl);
+  assert.equal(graph[1].url, canonicalUrl);
+  assert.equal(graph[1].offers.price, "0");
+  assert.equal(graph[1].inLanguage, "zh-CN");
+});
 
 test("页脚展示可访问的 ICP 备案链接", () => {
   assert.match(
