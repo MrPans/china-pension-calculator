@@ -40,7 +40,7 @@ test("核心结论可见且 FAQ 与结构化数据逐项一致", () => {
 
   const jsonLd = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
   const faq = jsonLd["@graph"].find((node) => node["@type"] === "FAQPage");
-  assert.equal(faq.mainEntity.length, 6);
+  assert.equal(faq.mainEntity.length, 7);
   for (const item of faq.mainEntity) {
     assert.ok(normalizeText(guide).includes(item.name), `应显示问题：${item.name}`);
     assert.ok(normalizeText(guide).includes(item.acceptedAnswer.text), `应显示答案：${item.name}`);
@@ -93,6 +93,36 @@ test("模型计算默认参数下不同寿命的临界回报率", () => {
     assert.equal(result.status, "within");
     assert.ok(Math.abs(result.rate - rate) < 0.02, `${age}岁临界点应接近${rate}%`);
   }
+});
+
+test("模型提供十一城市和七类地区养老金参数", () => {
+  assert.deepEqual(Object.keys(model.cityProfiles), ["beijing", "shanghai", "guangzhou", "shenzhen", "hangzhou", "chengdu", "wuhan", "ningbo", "jinhua", "wenzhou", "zhengzhou"]);
+  assert.equal(model.regionProfiles.beijing.pensionBase, 12049);
+  assert.equal(model.regionProfiles.shenzhen.pensionBase, 11293);
+  assert.equal(model.regionProfiles.zhejiang.contributionCeiling, 25299);
+  assert.equal(model.regionProfiles.wuhan.contributionFloor, 4498);
+  assert.equal(model.cityProfiles.ningbo.region, "zhejiang");
+});
+
+test("地区参数改变养老金结果并限制缴费基数", () => {
+  const beijing = model.calculate({ ...model.defaults, region: "beijing", baseCap: 20000 });
+  const henan = model.calculate({ ...model.defaults, region: "henan", baseCap: 20000 });
+  assert.notEqual(beijing.socialMonthly, henan.socialMonthly);
+  assert.equal(model.normalize({ region: "henan", baseCap: 50000 }).baseCap, 19155);
+  assert.equal(model.normalize({ region: "wuhan", baseCap: 1000 }).baseCap, 4498);
+  assert.equal(model.normalize({ region: "henan", pensionAdjustmentMode: "beijing2025" }).pensionAdjustmentMode, "simple");
+});
+
+test("页面提供城市选择器和地区政策说明", () => {
+  const selector = html.match(/<select[^>]+id="regionSelector"[\s\S]*?<\/select>/)?.[0];
+  assert.ok(selector, "应包含参保城市下拉框");
+  for (const city of ["北京", "上海", "广州", "深圳", "杭州", "成都", "武汉", "宁波", "金华", "温州", "郑州"]) {
+    assert.match(selector, new RegExp(`>${city}<`));
+  }
+  assert.match(html, /id="baseCapNote"/);
+  assert.match(html, /id="regionPolicyNote"/);
+  assert.match(html, /现代企业职工/);
+  assert.match(html, /城乡居民养老金是另一套制度/);
 });
 
 test("临界回报率响应养老金和退休投资假设", () => {
